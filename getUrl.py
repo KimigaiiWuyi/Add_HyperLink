@@ -7,13 +7,16 @@ with open('Config.yaml', encoding='UTF-8') as yaml_file:
 
 ck = token["Cookies"]
 
-if len(sys.argv) > 1:
+if len(sys.argv) == 3:
     url = sys.argv[1]
+    column_input = sys.argv[2]
 else:
     url = input("input your excel name: ")
+    column_input = input("输入你数据所在的列名（例如：A、B）: ")
 
+column_input = column_input.upper()
 wb=openpyxl.load_workbook(os.path.join(FILE_PATH,url))
-sheet=wb.worksheets[0]
+sheet=wb.active
 M_url = "https://quantum.63yx.com/index.php?c=api-AdsysMaterial&a=transfer&sec="
 
 def GetURL(name):
@@ -25,28 +28,24 @@ def GetURL(name):
     data = json.loads(req.text)
     return data
         
-for row in range(2,sheet.max_row+1):  
-    for column in "B":  #Here you can add or reduce the columns
-        print(row)
-        cell_name = "{}{}".format(column, row)
-        raw_data = GetURL(sheet[cell_name].value)
+for cell in sheet[column_input]:
+    if cell.value:
+        print("正在为【" + cell.value + "】添加超链接……")
+        raw_data = GetURL(cell.value)
         for i in raw_data["list"]["data"]:
-            if i["NAME"] != sheet[cell_name].value:
+            if i["NAME"] != cell.value:
                 raw_data["list"]["data"].remove(i)
         try:
             if raw_data["list"]["data"][0]["MAX_SOURCE"]["URL"].find("http://") != -1:
-                #sheet.cell(row,2).value='=HYPERLINK("%s","%s")' % (raw_data["list"]["data"][0]["MAX_SOURCE"]["URL"], sheet[cell_name].value)
-                sheet.cell(row,2).hyperlink = raw_data["list"]["data"][0]["MAX_SOURCE"]["URL"]
-                sheet.cell(row,2).value = sheet[cell_name].value
+                cell.hyperlink = raw_data["list"]["data"][0]["MAX_SOURCE"]["URL"]
+                cell.value = cell.value
             else:
-                sheet.cell(row,2).hyperlink = M_url + raw_data["list"]["data"][0]["MAX_SOURCE"]["ID"]
-                sheet.cell(row,2).value = sheet[cell_name].value
-            sheet.cell(row,2).style = "Hyperlink"
+                cell.hyperlink = M_url + raw_data["list"]["data"][0]["MAX_SOURCE"]["ID"]
+                cell.value = cell.value
+            cell.style = "Hyperlink"
         except:
-            print("error")
-        #if row >= 100:
-        #    break
+            print("未找到相应数据。")
     else:
-        continue
-    break
-wb.save('文件名称.xlsx')
+        print("该行数据为空。")
+
+wb.save('{}_带链接.xlsx'.format(url[:-5]))
